@@ -88,6 +88,20 @@ const APP_URL = process.env.APP_URL || (() => {
   return 'http://localhost:3000';
 })();
 
+// OpenID Connect (SSO) configuration - enabled when issuer and client ID are set
+const OIDC_ISSUER_URL = process.env.OIDC_ISSUER_URL;
+const OIDC_CLIENT_ID = process.env.OIDC_CLIENT_ID;
+const OIDC_CLIENT_SECRET = process.env.OIDC_CLIENT_SECRET || null;
+const OIDC_REDIRECT_URI = process.env.OIDC_REDIRECT_URI || `${APP_URL.replace(/\/+$/, '')}/api/auth/oidc/callback`;
+const OIDC_SCOPES = process.env.OIDC_SCOPES || 'openid email profile';
+const OIDC_PROVIDER_NAME = process.env.OIDC_PROVIDER_NAME || 'SSO';
+const OIDC_AUTO_PROVISION = process.env.OIDC_AUTO_PROVISION === 'true';
+const OIDC_DEFAULT_ROLE = process.env.OIDC_DEFAULT_ROLE === 'owner' ? 'owner' : 'member';
+const OIDC_ALLOWED_DOMAINS = (process.env.OIDC_ALLOWED_DOMAINS || '')
+  .split(',').map(d => d.trim().toLowerCase()).filter(Boolean);
+const OIDC_REQUIRE_VERIFIED_EMAIL = process.env.OIDC_REQUIRE_VERIFIED_EMAIL !== 'false';
+const OIDC_ENABLED = Boolean(OIDC_ISSUER_URL && OIDC_CLIENT_ID);
+
 // Demo Mode configuration
 const IS_DEMO_MODE = process.env.DEMO_MODE === 'true';
 let DEMO_USER_ID = null; // Will be set after seeding
@@ -1211,6 +1225,228 @@ app.post('/api/login', loginLimiter, [
 app.post('/api/logout', (req, res) => {
   res.clearCookie('authToken');
   res.json({ success: true });
+});
+
+// --- OPENID CONNECT (SSO) ---
+
+const OIDC_FLOW_COOKIE = 'oidcFlow';
+const OIDC_FLOW_COOKIE_PATH = '/api/auth/oidc';
+
+// openid-client v6 is ESM-only, so it is loaded via dynamic import.
+// Discovery runs lazily and is cached; a failed discovery is retried on the next login.
+let oidcConfigPromise = null;
+function getOidcConfig() {
+  if (!oidcConfigPromise) {
+    oidcConfigPromise = (async () => {
+      const client = await import('openid-client');
+      const issuerUrl = new URL(OIDC_ISSUER_URL);
+      // Plain HTTP issuers (e.g. a local Keycloak) are only allowed outside production
+      const allowInsecure = issuerUrl.protocol === 'http:' && NODE_ENV !== 'production';
+      const config = await client.discovery(
+        issuerUrl,
+        OIDC_CLIENT_ID,
+        OIDC_CLIENT_SECRET || undefined,
+        OIDC_CLIENT_SECRET ? undefined : client.None(),
+        allowInsecure ? { execute: [client.allowInsecureRequests] } : undefined
+      );
+      return { client, config };
+    })().catch(err => {
+      oidcConfigPromise = null;
+      throw err;
+    });
+  }
+  return oidcConfigPromise;
+}
+
+function redirectWithOidcError(res, code) {
+  res.redirect(`/login?oidc_error=${encodeURIComponent(code)}`);
+}
+
+// Resolve the local user for an OIDC identity: existing link, then email match, then optional provisioning
+async function findOrCreateOidcUser(issuer, claims) {
+  const subject = claims.sub;
+  const email = typeof claims.email === 'string' ? claims.email.trim().toLowerCase() : null;
+  const emailVerified = claims.email_verified === true || claims.email_verified === 'true';
+
+  if (email && OIDC_ALLOWED_DOMAINS.length > 0) {
+    const domain = email.split('@').pop();
+    if (!OIDC_ALLOWED_DOMAINS.includes(domain)) {
+      return { error: 'domain_not_allowed' };
+    }
+  }
+
+  const linked = await dbGet(
+    'SELECT id, email, organisation_id, role FROM users WHERE oidc_issuer = ? AND oidc_subject = ?',
+    [issuer, subject]
+  );
+  if (linked) {
+    return { user: linked };
+  }
+
+  if (!email) {
+    return { error: 'email_missing' };
+  }
+  if (OIDC_REQUIRE_VERIFIED_EMAIL && !emailVerified) {
+    return { error: 'email_not_verified' };
+  }
+
+  const existing = await dbGet(
+    'SELECT id, email, organisation_id, role, oidc_subject FROM users WHERE email = ?',
+    [email]
+  );
+  if (existing) {
+    if (existing.oidc_subject) {
+      // Account is already bound to a different external identity
+      return { error: 'account_conflict' };
+    }
+    await dbRun(
+      'UPDATE users SET oidc_issuer = ?, oidc_subject = ?, email_verified = CASE WHEN ? THEN 1 ELSE email_verified END, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [issuer, subject, emailVerified ? 1 : 0, existing.id]
+    );
+    await logAudit('oidc_identity_linked', 'user', existing.id, { email, issuer }, existing.id, existing.organisation_id).catch(() => {});
+    return { user: existing };
+  }
+
+  if (!OIDC_AUTO_PROVISION) {
+    return { error: 'not_registered' };
+  }
+
+  // Swiish runs a single organisation per instance; provisioned users join it
+  const org = await dbGet('SELECT id FROM organisations ORDER BY created_at ASC LIMIT 1', []);
+  if (!org) {
+    return { error: 'setup_required' };
+  }
+
+  const userId = require('crypto').randomUUID();
+  // password_hash is NOT NULL; store a hash of random bytes so password login is impossible
+  const unusablePasswordHash = await bcrypt.hash(require('crypto').randomBytes(32).toString('hex'), 10);
+  await dbRun(
+    `INSERT INTO users (id, email, password_hash, organisation_id, role, email_verified, oidc_issuer, oidc_subject)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [userId, email, unusablePasswordHash, org.id, OIDC_DEFAULT_ROLE, emailVerified ? 1 : 0, issuer, subject]
+  );
+  await logAudit('user_created', 'user', userId, { email, role: OIDC_DEFAULT_ROLE, source: 'oidc', issuer }, userId, org.id).catch(() => {});
+  return { user: { id: userId, email, organisation_id: org.id, role: OIDC_DEFAULT_ROLE } };
+}
+
+// Public: tells the frontend whether to show the SSO button
+app.get('/api/auth/oidc/config', apiLimiter, (req, res) => {
+  res.json({
+    enabled: OIDC_ENABLED && !IS_DEMO_MODE,
+    providerName: OIDC_PROVIDER_NAME
+  });
+});
+
+// Start the Authorization Code + PKCE flow
+app.get('/api/auth/oidc/login', apiLimiter, async (req, res) => {
+  if (!OIDC_ENABLED || IS_DEMO_MODE) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+
+  try {
+    const { client, config } = await getOidcConfig();
+    const codeVerifier = client.randomPKCECodeVerifier();
+    const codeChallenge = await client.calculatePKCECodeChallenge(codeVerifier);
+    const state = client.randomState();
+    const nonce = client.randomNonce();
+
+    // Flow parameters live in a short-lived signed cookie. It must be SameSite=Lax:
+    // the callback is a cross-site top-level navigation coming back from the provider.
+    const flowToken = jwt.sign({ state, nonce, codeVerifier }, JWT_SECRET, { expiresIn: '10m' });
+    res.cookie(OIDC_FLOW_COOKIE, flowToken, {
+      httpOnly: true,
+      secure: NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: OIDC_FLOW_COOKIE_PATH,
+      maxAge: 10 * 60 * 1000
+    });
+
+    const authorizationUrl = client.buildAuthorizationUrl(config, {
+      redirect_uri: OIDC_REDIRECT_URI,
+      scope: OIDC_SCOPES,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
+      state,
+      nonce
+    });
+    res.redirect(authorizationUrl.href);
+  } catch (err) {
+    log('[OIDC] Failed to start login', { error: err.message });
+    redirectWithOidcError(res, 'provider_unavailable');
+  }
+});
+
+// Provider redirects back here with ?code=...&state=...
+app.get('/api/auth/oidc/callback', apiLimiter, async (req, res) => {
+  if (!OIDC_ENABLED || IS_DEMO_MODE) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+
+  const flowToken = req.cookies[OIDC_FLOW_COOKIE];
+  res.clearCookie(OIDC_FLOW_COOKIE, { path: OIDC_FLOW_COOKIE_PATH });
+
+  let flow;
+  try {
+    flow = jwt.verify(flowToken, JWT_SECRET);
+  } catch (err) {
+    return redirectWithOidcError(res, 'session_expired');
+  }
+
+  try {
+    const { client, config } = await getOidcConfig();
+
+    // Rebuild the callback URL from the configured redirect URI so it matches behind reverse proxies
+    const currentUrl = new URL(OIDC_REDIRECT_URI);
+    currentUrl.search = new URL(req.originalUrl, 'http://localhost').search;
+
+    const tokens = await client.authorizationCodeGrant(config, currentUrl, {
+      pkceCodeVerifier: flow.codeVerifier,
+      expectedState: flow.state,
+      expectedNonce: flow.nonce,
+      idTokenExpected: true
+    });
+
+    let claims = tokens.claims();
+    // Some providers only put email in the UserInfo response
+    if (!claims.email && tokens.access_token) {
+      try {
+        const userInfo = await client.fetchUserInfo(config, tokens.access_token, claims.sub);
+        claims = { ...claims, email: userInfo.email, email_verified: userInfo.email_verified };
+      } catch (err) {
+        log('[OIDC] UserInfo request failed', { error: err.message });
+      }
+    }
+
+    const result = await findOrCreateOidcUser(config.serverMetadata().issuer, claims);
+    if (result.error) {
+      log('[OIDC] Login rejected', { reason: result.error, sub: claims.sub });
+      return redirectWithOidcError(res, result.error);
+    }
+
+    const { user } = result;
+    const token = jwt.sign(
+      {
+        user_id: user.id,
+        organisation_id: user.organisation_id,
+        role: user.role
+      },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRES_IN }
+    );
+
+    res.cookie('authToken', token, {
+      httpOnly: true,
+      secure: NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    });
+
+    log('[OIDC] Login successful', { userId: user.id });
+    res.redirect('/people');
+  } catch (err) {
+    log('[OIDC] Callback failed', { error: err.message });
+    redirectWithOidcError(res, 'login_failed');
+  }
 });
 
 // Image Upload Endpoint

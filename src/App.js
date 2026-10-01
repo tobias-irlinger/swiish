@@ -618,6 +618,7 @@ export default function App() {
   const [userRole, setUserRole] = useState(null); // 'owner' or 'member'
   const [csrfToken, setCsrfToken] = useState('');
   const [error, setError] = useState('');
+  const [oidcConfig, setOidcConfig] = useState({ enabled: false, providerName: 'SSO' });
   const [modal, setModal] = useState({ isOpen: false, type: 'info', title: '', message: '', onConfirm: null, onClose: null, confirmText: 'OK', cancelText: 'Cancel' });
   const [createCardModal, setCreateCardModal] = useState({ isOpen: false, slug: '', userId: null });
   const [targetUserIdForNewCard, setTargetUserIdForNewCard] = useState(null);
@@ -687,6 +688,29 @@ export default function App() {
     };
     mediaQuery.addEventListener('change', handleChange);
     return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  // Check whether SSO (OpenID Connect) login is available and surface callback errors
+  useEffect(() => {
+    fetch(`${API_ENDPOINT}/auth/oidc/config`)
+      .then(res => res.json())
+      .then(data => setOidcConfig({ enabled: !!data.enabled, providerName: data.providerName || 'SSO' }))
+      .catch(() => {});
+
+    const oidcError = new URLSearchParams(window.location.search).get('oidc_error');
+    if (oidcError) {
+      const messages = {
+        not_registered: 'No account exists for this SSO user. Ask an owner to invite you.',
+        domain_not_allowed: 'Your email domain is not allowed to sign in.',
+        email_missing: 'The identity provider did not share an email address.',
+        email_not_verified: 'Your email address is not verified with the identity provider.',
+        account_conflict: 'This account is already linked to a different SSO identity.',
+        setup_required: 'Swiish has not been set up yet.',
+        session_expired: 'The SSO login session expired. Please try again.',
+        provider_unavailable: 'The identity provider is currently unavailable.'
+      };
+      setError(messages[oidcError] || 'SSO login failed');
+    }
   }, []);
 
   // Check for demo mode on app load
@@ -1863,6 +1887,9 @@ const [settings, setSettings] = useState({
                 {error && <div className="flex items-center gap-2 text-error-text dark:text-error-text-dark text-sm">{error}</div>}
                 <button type="submit" className="w-full py-3.5 rounded-full bg-confirm dark:bg-confirm-dark text-confirm-text dark:text-confirm-text-dark font-bold hover:bg-confirm-hover dark:hover:bg-confirm-hover-dark transition-colors">Login</button>
               </form>
+              {oidcConfig.enabled && (
+                <a href={`${API_ENDPOINT}/auth/oidc/login`} className="block w-full mt-4 py-3.5 rounded-full text-center font-bold text-text-secondary dark:text-text-secondary-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors">Login with {oidcConfig.providerName}</a>
+              )}
             <div className="text-center mt-8 group relative z-10">
               <div className="flex justify-center">
                 <img src="/graphics/Swiish_Logo.svg" alt="Swiish" className="h-4 w-auto dark:hidden swiish-logo" />
