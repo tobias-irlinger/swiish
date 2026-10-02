@@ -71,6 +71,8 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : ['http://localhost:3000', 'http://localhost:8095'];
 const NODE_ENV = process.env.NODE_ENV || 'development';
+// Language of card content (BCP 47, e.g. "de"), set as <html lang> on public card pages
+const CARD_LANGUAGE = /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/.test(process.env.CARD_LANGUAGE || '') ? process.env.CARD_LANGUAGE : null;
 
 // Email configuration
 const SMTP_HOST = process.env.SMTP_HOST;
@@ -4025,6 +4027,7 @@ app.get('*', publicReadLimiter, async (req, res, next) => {
     // 3. /{slug} - legacy pattern (deprecated but still supported)
 
     const pathParts = req.path.slice(1).split('/').filter(p => p.length > 0);
+    const htmlBeforeCardLookup = html;
 
     // Pattern 1: Short code (7 characters exactly)
     const isShortCode = pathParts.length === 1 && /^[a-zA-Z0-9]{7}$/.test(pathParts[0]);
@@ -4042,6 +4045,11 @@ app.get('*', publicReadLimiter, async (req, res, next) => {
     else if (pathParts.length === 1) {
       const slug = pathParts[0];
       html = await injectMetaTags(html, slug, slug);
+    }
+
+    // injectMetaTags only modifies the page when a card was found
+    if (CARD_LANGUAGE && html !== htmlBeforeCardLookup) {
+      html = html.replace(/<html lang="[^"]*"/i, `<html lang="${CARD_LANGUAGE}"`);
     }
 
     // Inject nonce into script tags (case-insensitive to catch all variants)

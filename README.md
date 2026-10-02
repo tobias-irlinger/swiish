@@ -105,6 +105,7 @@ All configuration is done via environment variables. Copy `.env.example` to `.en
 - **`ALLOWED_ORIGINS`** - Comma-separated list of allowed CORS origins
 - **`MAX_FILE_SIZE`** - Maximum file upload size in bytes (default: 5MB)
 - **`FORCE_HTTPS`** - Force HTTPS redirects (`true` or `false`)
+- **`CARD_LANGUAGE`** - Language of card content (e.g. `de`), declared on public card pages for screen readers
 - **Email Configuration (SMTP)** - For email features like invitations
 
 See `.env.example` for all available options and their descriptions.

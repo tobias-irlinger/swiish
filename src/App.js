@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useId } from 'react';
 import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import PhoneInput from 'react-phone-number-input';
@@ -580,7 +580,7 @@ function VersionBadge() {
         rel="noopener noreferrer"
         className={`text-xs font-medium transition-all bg-card dark:bg-card-dark border-2 border-border dark:border-border-dark px-2 py-1 rounded shadow-sm hover:shadow-md ${
           showBranch
-            ? 'text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:border-amber-300 dark:hover:border-amber-700'
+            ? 'text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:border-amber-300 dark:hover:border-amber-700'
             : isOutdated 
               ? 'text-error-text dark:text-error-text-dark hover:bg-error-bg dark:hover:bg-error-bg-dark hover:border-error-border dark:hover:border-error-border-dark' 
               : isAhead
@@ -1886,7 +1886,7 @@ const [settings, setSettings] = useState({
                  <p className="text-sm md:text-base text-text-muted dark:text-text-muted-dark">Manage your people</p>
                </div>
                <div className="flex flex-wrap gap-2 md:gap-3 w-full md:w-auto">
-                 <button onClick={toggleDarkMode} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-muted dark:text-text-muted-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap flex items-center gap-2 text-sm md:text-base">
+                 <button onClick={toggleDarkMode} aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'} title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-muted dark:text-text-muted-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap flex items-center gap-2 text-sm md:text-base">
                    {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
                  </button>
                  <button onClick={handleLogout} className="px-3 py-2 md:px-4 md:py-3 rounded-full font-medium text-text-muted dark:text-text-muted-dark bg-card dark:bg-card-dark border border-border dark:border-border-dark hover:bg-surface dark:hover:bg-surface-dark transition-colors whitespace-nowrap text-sm md:text-base">Logout</button>
@@ -1987,9 +1987,9 @@ const [settings, setSettings] = useState({
                               <div className="w-full h-full flex flex-col">
                                 <div className="flex-1 flex flex-row items-start gap-3 mb-3 relative">
                                   <div className="w-20 h-20 rounded-full bg-surface dark:bg-surface-dark overflow-hidden border-thick border-border-subtle dark:border-border-dark flex-shrink-0">
-                                    {card.avatar ? <img src={card.avatar} className="w-full h-full object-cover" alt="avatar" /> : <User className="w-full h-full p-5 text-text-muted-subtle dark:text-text-muted-dark" />}
+                                    {card.avatar ? <img src={card.avatar} className="w-full h-full object-cover" alt="" /> : <User className="w-full h-full p-5 text-text-muted-subtle dark:text-text-muted-dark" />}
                                   </div>
-                                   <button onClick={(e) => { e.stopPropagation(); handleDelete(card.slug, card.userId); }} className="absolute top-0 right-0 p-2 text-text-muted-subtle dark:text-text-muted-dark hover:text-error-text dark:hover:text-error-text-dark hover:bg-error-bg dark:hover:bg-error-bg-dark rounded-full transition-colors">
+                                   <button onClick={(e) => { e.stopPropagation(); handleDelete(card.slug, card.userId); }} aria-label={`Delete card ${card.slug}`} title={`Delete card ${card.slug}`} className="absolute top-0 right-0 p-2 text-text-muted-subtle dark:text-text-muted-dark hover:text-error-text dark:hover:text-error-text-dark hover:bg-error-bg dark:hover:bg-error-bg-dark rounded-full transition-colors">
                                     <Trash2 className="w-4 h-4" />
                                   </button>
                                   <div className="flex-1 flex flex-col text-left min-w-0">
@@ -2894,7 +2894,7 @@ END:VCARD`;
     <div className={`flex flex-col h-full bg-card dark:bg-card-dark`}>
       <div className="h-44 w-full relative bg-surface dark:bg-surface-dark">
         {images.banner ? (
-          <img src={images.banner} className="w-full h-full object-cover" alt="banner" />
+          <img src={images.banner} className="w-full h-full object-cover" alt="" />
         ) : (
           (() => {
             const gradientStyle = getThemeGradient(theme.color, settings);
@@ -2902,7 +2902,7 @@ END:VCARD`;
           })()
         )}
         <div className="absolute top-4 right-4 flex gap-2">
-          <button onClick={toggleDarkMode} className="bg-white/30 dark:bg-black/30 backdrop-blur-md p-2.5 rounded-full text-white hover:bg-white/40 dark:hover:bg-black/40 transition-all border border-white/20 dark:border-white/10 shadow-sm">
+          <button onClick={toggleDarkMode} className="bg-white/30 dark:bg-black/30 backdrop-blur-md p-2.5 rounded-full text-white hover:bg-white/40 dark:hover:bg-black/40 transition-all border border-white/20 dark:border-white/10 shadow-sm" aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'} title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}>
             {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
           <button onClick={() => setShowQR(true)} className="bg-white/30 dark:bg-black/30 backdrop-blur-md p-2.5 rounded-full text-white hover:bg-white/40 dark:hover:bg-black/40 transition-all border border-white/20 dark:border-white/10 shadow-sm" aria-label="Show QR code" title="Show QR code">
@@ -2991,7 +2991,7 @@ END:VCARD`;
 
       <div className="px-6 pb-6 -mt-16 relative flex-1 flex flex-col min-h-0">
         <div className="w-32 h-32 min-h-[8rem] flex-shrink-0 rounded-full border-avatar border-white dark:border-card-dark shadow-xl overflow-hidden bg-card dark:bg-card-dark relative mb-4">
-          {images.avatar ? <img src={images.avatar} className="w-full h-full object-cover" alt="avatar" /> : <div className="w-full h-full bg-surface dark:bg-surface-dark flex items-center justify-center text-text-muted-subtle dark:text-text-muted-dark"><User className="w-12 h-12" /></div>}
+          {images.avatar ? <img src={images.avatar} className="w-full h-full object-cover" alt={`Profile photo of ${`${personal.firstName || ''} ${personal.lastName || ''}`.trim() || 'card owner'}`} /> : <div className="w-full h-full bg-surface dark:bg-surface-dark flex items-center justify-center text-text-muted-subtle dark:text-text-muted-dark"><User className="w-12 h-12" /></div>}
         </div>
 
         <div className="space-y-1 mb-8">
@@ -3371,7 +3371,7 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
       <div className="w-full lg:w-1/2 bg-card dark:bg-card-dark border-r border-border dark:border-border-dark h-auto lg:h-screen overflow-y-auto flex flex-col">
         <div className="p-6 border-b border-border-subtle dark:border-border-dark flex items-center justify-between bg-card dark:bg-card-dark sticky top-0 z-10">
           <div className="flex items-center gap-4">
-             {!onLogout && <button onClick={onBack} className="p-2 hover:bg-surface dark:hover:bg-surface-dark rounded-full text-text-muted dark:text-text-muted-dark"><ArrowLeft className="w-5 h-5"/></button>}
+             {!onLogout && <button onClick={onBack} aria-label="Back" title="Back" className="p-2 hover:bg-surface dark:hover:bg-surface-dark rounded-full text-text-muted dark:text-text-muted-dark"><ArrowLeft className="w-5 h-5"/></button>}
              <div>
                <h1 className="text-xl font-bold text-text-primary dark:text-text-primary-dark">Editing: {slug}</h1>
              </div>
@@ -3444,6 +3444,7 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
                       value={data.contact.phone || ''}
                       onChange={(value) => handleInputChange('contact', 'phone', value || '')}
                       placeholder="Phone"
+                      aria-label="Phone"
                       flags={flags}
                     />
                   </div>
@@ -3648,6 +3649,9 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
                        <button 
                         key={color.name} 
                         onClick={() => handleInputChange('theme', 'color', color.name)} 
+                        aria-label={`Theme colour ${color.name}`}
+                        aria-pressed={data.theme.color === color.name}
+                        title={color.name}
                         className={`w-12 h-12 rounded-full relative hover:scale-110 ${data.theme.color === color.name ? 'ring-4 ring-slate-200 scale-110' : ''}`}
                         style={{ background: color.gradientStyle || 'linear-gradient(135deg, #4f46e5, #7c3aed)' }}
                       >
@@ -3746,12 +3750,13 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
 }
 
 function Input({ label, icon: Icon, value, onChange, type = "text", placeholder }) {
+  const id = useId();
   return (
     <div className="space-y-1">
-      {label && <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark">{label}</label>}
+      {label && <label htmlFor={id} className="text-sm font-medium text-text-primary dark:text-text-secondary-dark">{label}</label>}
       <div className="relative">
-        {Icon && <Icon className="absolute left-4 top-3 w-5 h-5 text-text-muted-subtle dark:text-text-muted-dark" />}
-        <input type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className={`w-full ${Icon ? 'pl-11' : 'px-4'} py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark placeholder:text-text-muted-subtle dark:placeholder:text-text-muted-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark`} />
+        {Icon && <Icon aria-hidden="true" className="absolute left-4 top-3 w-5 h-5 text-text-muted-subtle dark:text-text-muted-dark" />}
+        <input id={id} aria-label={label ? undefined : placeholder} type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className={`w-full ${Icon ? 'pl-11' : 'px-4'} py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark placeholder:text-text-muted-subtle dark:placeholder:text-text-muted-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark`} />
       </div>
     </div>
   );
@@ -3777,24 +3782,31 @@ function LockedOption({ message, children }) {
 }
 
 function TextArea({ label, value, onChange }) {
+  const id = useId();
   return (
     <div className="space-y-1">
-      <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark">{label}</label>
-      <textarea value={value || ''} onChange={(e) => onChange(e.target.value)} rows={3} className="w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark resize-none" />
+      <label htmlFor={id} className="text-sm font-medium text-text-primary dark:text-text-secondary-dark">{label}</label>
+      <textarea id={id} value={value || ''} onChange={(e) => onChange(e.target.value)} rows={3} className="w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark resize-none" />
     </div>
   );
 }
 
 function Toggle({ label, description, checked, onChange }) {
+  const labelId = useId();
+  const descriptionId = useId();
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark">{label}</label>
-          {description && <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">{description}</p>}
+          <label id={labelId} className="text-sm font-medium text-text-primary dark:text-text-secondary-dark">{label}</label>
+          {description && <p id={descriptionId} className="text-xs text-text-muted dark:text-text-muted-dark mt-1">{description}</p>}
         </div>
         <button
           type="button"
+          role="switch"
+          aria-checked={checked}
+          aria-labelledby={labelId}
+          aria-describedby={description ? descriptionId : undefined}
           onClick={() => onChange(!checked)}
           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:ring-offset-2 ${
             checked ? 'bg-action dark:bg-action-dark' : 'bg-border dark:bg-surface-dark'
@@ -3866,8 +3878,8 @@ function ImageUpload({ label, image, onUpload, onRemove, isBanner, disabled = fa
     <section>
       <h3 className="text-sm font-medium text-text-primary dark:text-text-secondary-dark mb-3">{label}</h3>
       <div className={`relative ${isBanner ? 'w-full h-32' : 'w-24 h-24'} rounded-input bg-surface dark:bg-surface-dark border-thick border-dashed border-border dark:border-border-dark flex items-center justify-center overflow-hidden group ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-border-dark dark:hover:border-border-dark'} transition-colors`}>
-        {image ? <img src={image} className="w-full h-full object-cover" alt="upload" /> : <div className="text-center text-text-muted-subtle dark:text-text-muted-dark pointer-events-none"><Upload className="w-6 h-6 mx-auto mb-1" /><span className="text-xs">Upload</span></div>}
-        <input type="file" accept="image/*" onChange={onUpload} disabled={disabled} className="absolute inset-0 opacity-0 cursor-pointer appearance-none bg-transparent focus:outline-none disabled:cursor-not-allowed" />
+        {image ? <img src={image} className="w-full h-full object-cover" alt={`${label} preview`} /> : <div className="text-center text-text-muted-subtle dark:text-text-muted-dark pointer-events-none"><Upload className="w-6 h-6 mx-auto mb-1" /><span className="text-xs">Upload</span></div>}
+        <input type="file" accept="image/*" onChange={onUpload} disabled={disabled} aria-label={`Upload ${label}`} className="absolute inset-0 opacity-0 cursor-pointer appearance-none bg-transparent focus:outline-none disabled:cursor-not-allowed" />
       </div>
       {image && !disabled && <button onClick={onRemove} className="mt-2 text-sm text-red-500 dark:text-red-400 font-medium hover:text-red-600 dark:hover:text-red-300">Remove</button>}
     </section>
@@ -4205,7 +4217,7 @@ function UserManagementView({ apiCall, userRole, onBack, showAlert, showConfirm 
       <div className="w-full bg-card dark:bg-card-dark border-b border-border dark:border-border-dark">
         <div className="p-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button onClick={onBack} className="p-2 hover:bg-surface dark:hover:bg-surface-dark rounded-full text-text-muted dark:text-text-muted-dark">
+            <button onClick={onBack} aria-label="Back" title="Back" className="p-2 hover:bg-surface dark:hover:bg-surface-dark rounded-full text-text-muted dark:text-text-muted-dark">
               <ArrowLeft className="w-5 h-5"/>
             </button>
             <div>
@@ -5105,7 +5117,7 @@ function SettingsView({ settings, setSettings, onBack, onSave, apiCall, showAler
       <div className="w-full lg:w-1/2 bg-card dark:bg-card-dark border-r border-border dark:border-border-dark h-auto lg:h-screen overflow-y-auto flex flex-col">
         <div className="p-6 border-b border-border-subtle dark:border-border-dark flex items-center justify-between bg-card dark:bg-card-dark sticky top-0 z-10">
           <div className="flex items-center gap-4">
-            <button onClick={onBack} className="p-2 hover:bg-surface dark:hover:bg-surface-dark rounded-full text-text-muted dark:text-text-muted-dark">
+            <button onClick={onBack} aria-label="Back" title="Back" className="p-2 hover:bg-surface dark:hover:bg-surface-dark rounded-full text-text-muted dark:text-text-muted-dark">
               <ArrowLeft className="w-5 h-5"/>
             </button>
             <div>

@@ -15,6 +15,7 @@ services:
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-24h}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:8095}
       - MAX_FILE_SIZE=${MAX_FILE_SIZE:-5242880}
+      - CARD_LANGUAGE=${CARD_LANGUAGE:-}
     volumes:
       - ./data:/app/data
       - ./uploads:/app/uploads

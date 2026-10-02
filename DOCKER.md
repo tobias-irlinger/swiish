@@ -62,6 +62,7 @@ You can configure Swiish using environment variables.
 | `ALLOWED_ORIGINS` | Comma-separated list of allowed CORS origins. | `http://localhost:3000,http://localhost:8095` |
 | `MAX_FILE_SIZE` | Max upload size in bytes. | `5242880` (5MB) |
 | `FORCE_HTTPS` | Force HTTPS redirects. | `false` |
+| `CARD_LANGUAGE` | Language of card content (BCP 47, e.g. `de`), declared on public card pages. | – |
 
 #### Email Configuration (Optional)
 Required for sending invitations and password resets.
