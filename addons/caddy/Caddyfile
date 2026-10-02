@@ -1,0 +1,10 @@
+# Caddy reverse proxy with automatic HTTPS (ACME / Let's Encrypt) for Swiish.
+# SWIISH_DOMAIN and ACME_EMAIL come from the environment (see README.md).
+{
+	email {$ACME_EMAIL}
+}
+
+{$SWIISH_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy swiish:3000
+}

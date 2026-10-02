@@ -41,6 +41,7 @@ COPY --from=build /app/src/active-branch.json ./active-branch.json
 COPY package*.json ./
 RUN npm install --production
 COPY server.js .
+COPY addons/ ./addons/
 COPY database.json .
 COPY migrations/ ./migrations/
 

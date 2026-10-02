@@ -109,6 +109,14 @@ All configuration is done via environment variables. Copy `.env.example` to `.en
 
 See `.env.example` for all available options and their descriptions.
 
+### Optional Addons
+
+Optional features live in [`addons/`](addons/README.md) and stay inactive unless configured:
+
+- **[Single sign-on (OpenID Connect)](addons/oidc/README.md)** - Login via Shibboleth, Keycloak, Entra ID and others, with an optional card per user that is filled and kept up to date from SSO attributes
+- **Card limit** - Limit the number of cards per user (`CARD_LIMIT_PER_USER`)
+- **[Automatic HTTPS](addons/caddy/README.md)** - Caddy reverse proxy with ACME / Let's Encrypt certificates for Docker Compose
+
 ### Demo Mode (Experimental)
 
 Demo mode allows visitors to explore Swiish without requiring authentication or setup. This is useful for showcasing the platform on dedicated demo instances.

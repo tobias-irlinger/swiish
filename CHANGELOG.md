@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Addons**: Optional, self-contained features in `addons/` that stay inactive unless configured, with a small hook API (`registerRoutes`, `beforeCardSave`)
+- **Single Sign-On (OIDC addon)**: Login via OpenID Connect (Authorization Code + PKCE), tested with Shibboleth-style providers. Links existing users by email, optional auto-provisioning, email domain allow-list
+- **SSO Cards (OIDC addon)**: Optional card per user created from SSO attributes. Provider-owned fields are read-only in the editor and refreshed on every SSO login; other mapped fields are only initial values
+- **Card Limit (addon)**: `CARD_LIMIT_PER_USER` caps the number of cards per user
+- **Automatic HTTPS (Caddy addon)**: Docker Compose override with Caddy and ACME / Let's Encrypt certificates
+
 ## [0.7.0] - 2026-09-11
 
 ### Added

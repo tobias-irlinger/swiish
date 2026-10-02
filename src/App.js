@@ -693,7 +693,7 @@ export default function App() {
   // Check whether SSO (OpenID Connect) login is available and surface callback errors
   useEffect(() => {
     fetch(`${API_ENDPOINT}/auth/oidc/config`)
-      .then(res => res.json())
+      .then(res => (res.ok ? res.json() : { enabled: false }))
       .then(data => setOidcConfig({ enabled: !!data.enabled, providerName: data.providerName || 'SSO' }))
       .catch(() => {});
 
@@ -1747,7 +1747,8 @@ const [settings, setSettings] = useState({
           fetchCardList();
           setTimeout(() => setIsSuccess(false), 2000);
         } else {
-          showAlert('Save failed', 'error');
+          const errorData = await res.json().catch(() => ({}));
+          showAlert(errorData.error || 'Save failed', 'error');
         }
       } finally {
         setIsSaving(false);
@@ -3304,6 +3305,10 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
     })
   );
   
+  // Fields owned by the SSO identity provider (OIDC addon) are read-only
+  const ssoManagedFields = data._sso?.managedFields || [];
+  const isSsoManaged = (section, field) => ssoManagedFields.includes(`${section}.${field}`);
+
   const handleInputChange = (section, field, value) => {
     setData(prev => ({ ...prev, [section]: { ...prev[section], [field]: value } }));
   };
@@ -3439,9 +3444,9 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
            {activeTab === 'details' && (
              <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Input label="First Name" value={data.personal.firstName} onChange={v => handleInputChange('personal', 'firstName', v)} />
-                  <Input label="Last Name" value={data.personal.lastName} onChange={v => handleInputChange('personal', 'lastName', v)} />
-                  <Input label="Job Title" value={data.personal.title} onChange={v => handleInputChange('personal', 'title', v)} />
+                  <Input label="First Name" value={data.personal.firstName} onChange={v => handleInputChange('personal', 'firstName', v)} locked={isSsoManaged('personal', 'firstName')} />
+                  <Input label="Last Name" value={data.personal.lastName} onChange={v => handleInputChange('personal', 'lastName', v)} locked={isSsoManaged('personal', 'lastName')} />
+                  <Input label="Job Title" value={data.personal.title} onChange={v => handleInputChange('personal', 'title', v)} locked={isSsoManaged('personal', 'title')} />
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark">Organisation</label>
                     <div className="relative">
@@ -3459,27 +3464,31 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
                     <p className="text-xs text-text-muted dark:text-text-muted-dark mt-1">Organisation name is set by your organisation</p>
                   </div>
                 </div>
-                <Input label="Location" value={data.personal.location} onChange={v => handleInputChange('personal', 'location', v)} />
-                <TextArea label="Bio" value={data.personal.bio} onChange={v => handleInputChange('personal', 'bio', v)} />
+                <Input label="Location" value={data.personal.location} onChange={v => handleInputChange('personal', 'location', v)} locked={isSsoManaged('personal', 'location')} />
+                <TextArea label="Bio" value={data.personal.bio} onChange={v => handleInputChange('personal', 'bio', v)} disabled={isSsoManaged('personal', 'bio')} />
                 <div className="h-px bg-surface dark:bg-surface-dark" />
                 <div className="space-y-4">
-                  <Input icon={Mail} placeholder="Email" value={data.contact.email} onChange={v => handleInputChange('contact', 'email', v)} type="email" />
+                  <Input icon={Mail} placeholder="Email" value={data.contact.email} onChange={v => handleInputChange('contact', 'email', v)} locked={isSsoManaged('contact', 'email')} type="email" />
                   <div className="space-y-1">
                     <PhoneInput
                       international
                       defaultCountry="GB"
                       value={data.contact.phone || ''}
                       onChange={(value) => handleInputChange('contact', 'phone', value || '')}
+                      disabled={isSsoManaged('contact', 'phone')}
                       placeholder="Phone"
                       flags={flags}
                     />
                   </div>
-                  <Input icon={Globe} placeholder="Website" value={data.contact.website} onChange={v => handleInputChange('contact', 'website', v)} type="url" />
-                  <Input icon={Linkedin} placeholder="LinkedIn" value={data.social.linkedin} onChange={v => handleInputChange('social', 'linkedin', v)} type="url" />
-                  <Input icon={Twitter} placeholder="Twitter / X" value={data.social.twitter} onChange={v => handleInputChange('social', 'twitter', v)} type="url" />
-                  <Input icon={Instagram} placeholder="Instagram" value={data.social.instagram} onChange={v => handleInputChange('social', 'instagram', v)} type="url" />
-                  <Input icon={Github} placeholder="Github" value={data.social.github} onChange={v => handleInputChange('social', 'github', v)} type="url" />
+                  <Input icon={Globe} placeholder="Website" value={data.contact.website} onChange={v => handleInputChange('contact', 'website', v)} locked={isSsoManaged('contact', 'website')} type="url" />
+                  <Input icon={Linkedin} placeholder="LinkedIn" value={data.social.linkedin} onChange={v => handleInputChange('social', 'linkedin', v)} locked={isSsoManaged('social', 'linkedin')} type="url" />
+                  <Input icon={Twitter} placeholder="Twitter / X" value={data.social.twitter} onChange={v => handleInputChange('social', 'twitter', v)} locked={isSsoManaged('social', 'twitter')} type="url" />
+                  <Input icon={Instagram} placeholder="Instagram" value={data.social.instagram} onChange={v => handleInputChange('social', 'instagram', v)} locked={isSsoManaged('social', 'instagram')} type="url" />
+                  <Input icon={Github} placeholder="Github" value={data.social.github} onChange={v => handleInputChange('social', 'github', v)} locked={isSsoManaged('social', 'github')} type="url" />
                 </div>
+                {ssoManagedFields.length > 0 && (
+                  <p className="text-xs text-text-muted dark:text-text-muted-dark flex items-center gap-1"><Lock className="w-3 h-3" /> Locked fields are managed by your organisation's single sign-on and update on each SSO login.</p>
+                )}
              </div>
            )}
 
@@ -3772,13 +3781,18 @@ function EditorView({ data, setData, onBack, onSave, slug, settings, csrfToken, 
   );
 }
 
-function Input({ label, icon: Icon, value, onChange, type = "text", placeholder }) {
+function Input({ label, icon: Icon, value, onChange, type = "text", placeholder, locked = false }) {
   return (
     <div className="space-y-1">
       {label && <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark">{label}</label>}
       <div className="relative">
         {Icon && <Icon className="absolute left-4 top-3 w-5 h-5 text-text-muted-subtle dark:text-text-muted-dark" />}
-        <input type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className={`w-full ${Icon ? 'pl-11' : 'px-4'} py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark placeholder:text-text-muted-subtle dark:placeholder:text-text-muted-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark`} />
+        <input type={type} value={value || ''} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} disabled={locked} className={`w-full ${Icon ? 'pl-11' : 'px-4'} ${locked ? 'pr-10 cursor-not-allowed text-text-secondary dark:text-text-muted-dark bg-surface dark:bg-surface-dark' : 'text-text-primary dark:text-text-primary-dark bg-input-bg dark:bg-input-bg-dark'} py-2.5 rounded-input border border-border dark:border-border-dark placeholder:text-text-muted-subtle dark:placeholder:text-text-muted-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark`} />
+        {locked && (
+          <div className="absolute inset-0 flex items-center justify-end pr-3 pointer-events-none">
+            <Lock className="w-4 h-4 text-text-muted-subtle dark:text-text-muted-dark" />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -3803,11 +3817,11 @@ function LockedOption({ message, children }) {
   );
 }
 
-function TextArea({ label, value, onChange }) {
+function TextArea({ label, value, onChange, disabled = false }) {
   return (
     <div className="space-y-1">
       <label className="text-sm font-medium text-text-primary dark:text-text-secondary-dark">{label}</label>
-      <textarea value={value || ''} onChange={(e) => onChange(e.target.value)} rows={3} className="w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark resize-none" />
+      <textarea value={value || ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} rows={3} className="disabled:cursor-not-allowed disabled:opacity-60 w-full px-4 py-2.5 rounded-input border border-border dark:border-border-dark bg-input-bg dark:bg-input-bg-dark text-text-primary dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-2 focus:ring-focus-ring dark:focus:ring-focus-ring-dark focus:border-action dark:focus:border-action-dark resize-none" />
     </div>
   );
 }

@@ -76,6 +76,16 @@ Required for sending invitations and password resets.
 
 ---
 
+### 🔒 HTTPS (optional)
+
+Swiish serves plain HTTP. For automatic Let's Encrypt certificates, use the Caddy override in [`addons/caddy`](addons/caddy/README.md):
+
+```bash
+docker compose -f docker-compose.yml -f addons/caddy/docker-compose.caddy.yml up -d
+```
+
+---
+
 ### 💾 Volumes
 
 Persist these volumes to keep your data safe during updates:

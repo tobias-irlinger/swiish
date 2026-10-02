@@ -1,0 +1,32 @@
+# Optional override: puts Caddy with automatic HTTPS (ACME) in front of Swiish.
+# Usage (from the repository root):
+#   docker compose -f docker-compose.yml -f addons/caddy/docker-compose.caddy.yml up -d
+services:
+  swiish:
+    # Only reachable through Caddy
+    ports: !reset []
+    environment:
+      - APP_URL=https://${SWIISH_DOMAIN}
+      - ALLOWED_ORIGINS=https://${SWIISH_DOMAIN}
+
+  caddy:
+    image: caddy:2
+    container_name: swiish-caddy
+    restart: unless-stopped
+    depends_on:
+      - swiish
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      - SWIISH_DOMAIN=${SWIISH_DOMAIN:?Set SWIISH_DOMAIN to your public domain}
+      - ACME_EMAIL=${ACME_EMAIL:?Set ACME_EMAIL for Let's Encrypt notifications}
+    volumes:
+      - ./addons/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:
