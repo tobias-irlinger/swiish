@@ -702,6 +702,7 @@ export default function App() {
       const messages = {
         not_registered: 'No account exists for this SSO user. Ask an owner to invite you.',
         domain_not_allowed: 'Your email domain is not allowed to sign in.',
+        claim_not_allowed: 'Your account is not allowed to sign in to this service.',
         email_missing: 'The identity provider did not share an email address.',
         email_not_verified: 'Your email address is not verified with the identity provider.',
         account_conflict: 'This account is already linked to a different SSO identity.',

@@ -36,6 +36,18 @@ On each login the local user is resolved in this order:
 
 Otherwise the login is rejected and the login page shows why.
 
+Before that, `OIDC_REQUIRED_CLAIMS` is checked on **every** login, e.g.
+`schac_home_organization=hm.edu` so only members of one institution can log
+in through a shared federation broker.
+
+## Roles from claims
+
+After a login, users become **owner** if their email is in `OIDC_OWNER_EMAILS`
+or any rule in `OIDC_OWNER_CLAIMS` matches (e.g.
+`eduPersonEntitlement=urn:mace:hm.edu:swiish:owner`). With `OIDC_ROLE_SYNC=true`
+owners who no longer match are demoted to member, except the last owner of the
+organisation.
+
 ## SSO card
 
 With `OIDC_CARD_AUTO_CREATE=true`:
@@ -77,6 +89,11 @@ Claims can be top-level names (`given_name`) or dotted paths
 | `OIDC_SCOPES` | `openid email profile` | Requested scopes. Add `phone` etc. as needed. |
 | `OIDC_PROVIDER_NAME` | `SSO` | Label of the login button. |
 | `OIDC_FETCH_USERINFO` | `true` | Merge the UserInfo response into the ID token claims. |
+| `OIDC_AUTH_PARAMS` | – | Extra authorization request parameters in query string form, e.g. `kc_idp_hint=hm` for a federation broker. Flow parameters cannot be overridden. |
+| `OIDC_REQUIRED_CLAIMS` | – | `claim=value` pairs, comma-separated. Each listed claim must match one of its values. |
+| `OIDC_OWNER_EMAILS` | – | Comma-separated emails that become owners on login. |
+| `OIDC_OWNER_CLAIMS` | – | `claim=value` pairs; any match makes the user an owner. |
+| `OIDC_ROLE_SYNC` | `false` | Demote owners who no longer match (never the last owner). |
 | `OIDC_REQUIRE_VERIFIED_EMAIL` | `true` | Require `email_verified` before linking or provisioning by email. |
 | `OIDC_AUTO_PROVISION` | `false` | Create unknown SSO users. |
 | `OIDC_DEFAULT_ROLE` | `member` | Role of provisioned users (`member` or `owner`). |

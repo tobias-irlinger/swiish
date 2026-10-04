@@ -57,3 +57,6 @@ yarn-error.log*
 .cache/
 cache/
 plans/
+
+# Rendered tenant configuration (provisioning/bin/swiish-tenants.js render)
+provisioning/out/

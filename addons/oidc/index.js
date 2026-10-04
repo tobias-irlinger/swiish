@@ -49,6 +49,47 @@ function getProvider(ctx) {
   return providerPromise;
 }
 
+// All values of a claim as strings (top-level name or dotted path; arrays for multi-valued attributes)
+function claimValues(claims, name) {
+  let value = name in claims ? claims[name] : name.split('.').reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), claims);
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) value = [value];
+  return value.filter(v => v !== null && typeof v !== 'object').map(v => String(v).trim());
+}
+
+// True when every claim in rules has at least one of its expected values
+function matchesAllRules(claims, rules) {
+  return Object.entries(rules).every(([claim, expected]) => claimValues(claims, claim).some(v => expected.includes(v)));
+}
+
+// True when any single claim rule matches
+function matchesAnyRule(claims, rules) {
+  return Object.entries(rules).some(([claim, expected]) => claimValues(claims, claim).some(v => expected.includes(v)));
+}
+
+// Promotes users matching OIDC_OWNER_EMAILS / OIDC_OWNER_CLAIMS; with OIDC_ROLE_SYNC also demotes
+async function syncRole(user, claims, ctx) {
+  const email = (readClaim(claims, 'email') || user.email || '').toLowerCase();
+  const isOwner = config.ownerEmails.includes(email) || matchesAnyRule(claims, config.ownerClaims);
+  let role = user.role;
+  if (isOwner) {
+    role = 'owner';
+  } else if (config.roleSync && user.role === 'owner') {
+    const owners = await ctx.dbGet("SELECT COUNT(*) AS count FROM users WHERE organisation_id = ? AND role = 'owner'", [user.organisation_id]);
+    if (owners.count > 1) {
+      role = 'member';
+    } else {
+      ctx.log('[OIDC] Not demoting the last owner of the organisation', { userId: user.id });
+    }
+  }
+  if (role !== user.role) {
+    await ctx.dbRun('UPDATE users SET role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [role, user.id]);
+    await ctx.logAudit('user_role_changed', 'user', user.id, { from: user.role, to: role, source: 'oidc' }, user.id, user.organisation_id).catch(() => {});
+    ctx.log('[OIDC] Role updated from claims', { userId: user.id, role });
+  }
+  return { ...user, role };
+}
+
 function redirectWithError(res, code) {
   res.redirect(`/login?oidc_error=${encodeURIComponent(code)}`);
 }
@@ -147,6 +188,7 @@ function registerRoutes(app, ctx) {
       });
 
       const authorizationUrl = client.buildAuthorizationUrl(oidcConfig, {
+        ...config.authParams,
         redirect_uri: config.redirectUri,
         scope: config.scopes,
         code_challenge: codeChallenge,
@@ -198,13 +240,19 @@ function registerRoutes(app, ctx) {
         }
       }
 
+      // e.g. only members of this institution (schac_home_organization) may log in
+      if (!matchesAllRules(claims, config.requiredClaims)) {
+        ctx.log('[OIDC] Login rejected', { reason: 'claim_not_allowed', sub: claims.sub });
+        return redirectWithError(res, 'claim_not_allowed');
+      }
+
       const result = await findOrCreateUser(oidcConfig.serverMetadata().issuer, claims, ctx);
       if (result.error) {
         ctx.log('[OIDC] Login rejected', { reason: result.error, sub: claims.sub });
         return redirectWithError(res, result.error);
       }
 
-      const { user } = result;
+      const user = await syncRole(result.user, claims, ctx);
 
       if (config.card.enabled) {
         try {
@@ -234,7 +282,8 @@ function registerRoutes(app, ctx) {
       ctx.log('[OIDC] Login successful', { userId: user.id });
       res.redirect('/people');
     } catch (err) {
-      ctx.log('[OIDC] Callback failed', { error: err.message });
+      // The underlying error names the offending claim (aud, iss, nonce, ...) without token contents
+      ctx.log('[OIDC] Callback failed', { error: err.message, code: err.code, detail: err.cause instanceof Error ? err.cause.message : undefined });
       redirectWithError(res, 'login_failed');
     }
   });

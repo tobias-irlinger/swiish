@@ -9,6 +9,9 @@
 //   beforeCardSave(args, ctx) - optional, runs before a card is written via
 //                               POST /api/cards/:slug; may mutate args.data or
 //                               throw an AddonError to reject the save
+//   onStartup(ctx)            - optional, runs once after database migrations
+//   managesSetup              - optional, true when the addon replaces the
+//                               interactive first-run setup
 
 class AddonError extends Error {
   constructor(status, message) {
@@ -18,7 +21,9 @@ class AddonError extends Error {
 }
 
 const AVAILABLE_ADDONS = [
+  require('./bootstrap'),
   require('./card-limit'),
+  require('./health'),
   require('./oidc')
 ];
 
@@ -48,6 +53,18 @@ function registerRoutes(app) {
   }
 }
 
+// Runs after migrations, before the server accepts requests
+async function onStartup() {
+  for (const addon of active) {
+    if (addon.onStartup) await addon.onStartup(ctx);
+  }
+}
+
+// When true, the interactive first-run setup (/api/setup/*) is disabled
+function isSetupManaged() {
+  return active.some(addon => addon.managesSetup);
+}
+
 // args: { user, targetUserId, slug, data }
 async function beforeCardSave(args) {
   for (const addon of active) {
@@ -61,5 +78,7 @@ module.exports = {
   isActive,
   getAddon,
   registerRoutes,
+  onStartup,
+  isSetupManaged,
   beforeCardSave
 };

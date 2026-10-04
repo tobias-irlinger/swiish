@@ -24,6 +24,39 @@ function list(value) {
   return (value || '').split(',').map(v => v.trim()).filter(Boolean);
 }
 
+// Parameters the login flow sets itself and that must not be overridden
+const RESERVED_AUTH_PARAMS = ['client_id', 'redirect_uri', 'response_type', 'scope', 'state', 'nonce', 'code_challenge', 'code_challenge_method'];
+
+// "kc_idp_hint=https://idp.example.org&prompt=login" -> { kc_idp_hint: ..., prompt: ... }
+function parseAuthParams(value, warn) {
+  const params = {};
+  for (const [key, val] of new URLSearchParams(value || '')) {
+    if (RESERVED_AUTH_PARAMS.includes(key)) {
+      warn(`OIDC_AUTH_PARAMS may not set "${key}"; ignored`);
+      continue;
+    }
+    params[key] = val;
+  }
+  return params;
+}
+
+// "claim=value,claim=value2,other=x" -> { claim: ['value', 'value2'], other: ['x'] }
+// A rule set matches when every claim matches at least one of its values.
+function parseClaimRules(value, name, warn) {
+  const rules = {};
+  for (const entry of list(value)) {
+    const index = entry.indexOf('=');
+    const claim = index > 0 ? entry.slice(0, index).trim() : '';
+    const expected = index > 0 ? entry.slice(index + 1).trim() : '';
+    if (!claim || !expected) {
+      warn(`ignoring invalid ${name} entry "${entry}"`);
+      continue;
+    }
+    (rules[claim] = rules[claim] || []).push(expected);
+  }
+  return rules;
+}
+
 // "personal.firstName=given_name,..." -> { 'personal.firstName': 'given_name', ... }
 function parseMapping(value, warn) {
   const mapping = {};
@@ -63,9 +96,18 @@ function load(env = process.env) {
     providerName: env.OIDC_PROVIDER_NAME || 'SSO',
     // Shibboleth OPs usually release attributes via UserInfo only, so fetch it by default
     fetchUserInfo: env.OIDC_FETCH_USERINFO !== 'false',
+    // Extra authorization request parameters, e.g. an IdP hint for a federation broker
+    authParams: parseAuthParams(env.OIDC_AUTH_PARAMS, warn),
+    // Every listed claim must match one of its values, otherwise the login is rejected
+    requiredClaims: parseClaimRules(env.OIDC_REQUIRED_CLAIMS, 'OIDC_REQUIRED_CLAIMS', warn),
 
     autoProvision: env.OIDC_AUTO_PROVISION === 'true',
     defaultRole: env.OIDC_DEFAULT_ROLE === 'owner' ? 'owner' : 'member',
+    // Users matching an owner email or any owner claim rule become owners on login
+    ownerEmails: list(env.OIDC_OWNER_EMAILS).map(e => e.toLowerCase()),
+    ownerClaims: parseClaimRules(env.OIDC_OWNER_CLAIMS, 'OIDC_OWNER_CLAIMS', warn),
+    // When true, owners who no longer match are demoted to member on login
+    roleSync: env.OIDC_ROLE_SYNC === 'true',
     allowedDomains: list(env.OIDC_ALLOWED_DOMAINS).map(d => d.toLowerCase()),
     requireVerifiedEmail: env.OIDC_REQUIRE_VERIFIED_EMAIL !== 'false',
 

@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://swiish.hm.edu/schema/platform.schema.json",
+  "title": "Swiish platform settings",
+  "description": "Settings shared by all tenants, maintained by the operator.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "kind", "spec"],
+  "properties": {
+    "apiVersion": { "const": "swiish.hm.edu/v1" },
+    "kind": { "const": "Platform" },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseDomain", "image", "broker"],
+      "properties": {
+        "baseDomain": { "$ref": "tenant.schema.json#/$defs/hostname" },
+        "image": { "description": "Container image incl. tag.", "type": "string", "minLength": 1 },
+        "language": { "$ref": "tenant.schema.json#/$defs/language" },
+        "healthcheckPath": { "type": "string", "pattern": "^/[A-Za-z0-9_-][A-Za-z0-9/_-]*$" },
+        "broker": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["issuerUrl"],
+          "properties": {
+            "issuerUrl": { "type": "string", "format": "uri", "pattern": "^https://" },
+            "clientIdPrefix": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]*$" },
+            "tokenAuthMethod": { "enum": ["client_secret_basic", "client_secret_post"] },
+            "providerName": { "type": "string", "minLength": 1, "maxLength": 50 },
+            "scopes": { "type": "string", "pattern": "(^|\\s)openid(\\s|$)" },
+            "idpHint": {
+              "description": "How the broker is told which home IdP to use.",
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["param", "value"],
+              "properties": {
+                "param": { "type": "string", "pattern": "^[A-Za-z0-9_]+$" },
+                "value": { "description": "entityId = the tenant's idpEntityId, tenantId = metadata.id (e.g. a Keycloak IdP alias).", "enum": ["entityId", "tenantId"] }
+              }
+            },
+            "claims": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "homeOrganisation": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
+                "entitlement": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" }
+              }
+            }
+          }
+        },
+        "smtp": {
+          "description": "Credentials (SMTP_USER, SMTP_PASSWORD) are secrets and not part of this file.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["host", "from"],
+          "properties": {
+            "host": { "type": "string", "minLength": 1 },
+            "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+            "secure": { "type": "boolean" },
+            "from": { "type": "string", "format": "email" }
+          }
+        },
+        "defaults": {
+          "description": "Defaults for every tenant; a tenant manifest overrides them.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cards": { "$ref": "tenant.schema.json#/$defs/cards" },
+            "identity": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "autoProvision": { "type": "boolean" },
+                "defaultRole": { "enum": ["member", "owner"] },
+                "roleSync": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,48 @@
+# Settings shared by all tenants. Maintained by the platform operator.
+# All values are EXAMPLES - replace them before use.
+apiVersion: swiish.hm.edu/v1
+kind: Platform
+spec:
+  baseDomain: visitenkarte.example.org      # tenants get <id>.<baseDomain>
+  image: registry.example.org/swiish:0.7.0  # one image (Swiish + addons) for all tenants
+  language: de
+  healthcheckPath: /healthz
+
+  broker:
+    issuerUrl: https://login.example.org/realms/hochschulen
+    clientIdPrefix: swiish-
+    # client_secret_basic is the spec default; the broker must URL-decode the
+    # client ID (RFC 6749 2.3.1), since IDs like "swiish-thi" contain "-"
+    tokenAuthMethod: client_secret_basic
+    providerName: Hochschul-Login
+    scopes: openid email profile
+    idpHint:
+      param: kc_idp_hint   # Keycloak; other brokers use different parameters
+      value: tenantId      # Keycloak IdP alias = tenant id; "entityId" passes the SAML entityID
+    claims:
+      homeOrganisation: schac_home_organization
+      entitlement: eduPersonEntitlement
+
+  smtp:
+    host: smtp.example.org
+    port: 587
+    secure: false
+    from: noreply@visitenkarte.example.org
+
+  defaults:
+    identity:
+      autoProvision: true
+      defaultRole: member
+      roleSync: false
+    cards:
+      autoCreate: true
+      limitPerUser: 1
+      mapping:
+        personal.firstName: given_name
+        personal.lastName: family_name
+        contact.email: email
+        contact.phone: phone_number
+      lockedFields:
+        - personal.firstName
+        - personal.lastName
+        - contact.email

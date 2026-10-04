@@ -1,0 +1,14 @@
+# EXAMPLE tenant - replace all values with the institution's real data.
+apiVersion: swiish.hm.edu/v1
+kind: Tenant
+metadata:
+  id: thi
+  name: Technische Hochschule Ingolstadt
+spec:
+  host: karten.thi.example.org      # own domain instead of thi.<baseDomain>
+  contact: it-service@thi.example.org
+  identity:
+    idpEntityId: https://idp.thi.example.org/idp/shibboleth
+    homeOrganisations: [thi.example.org]
+    owners:
+      emails: [it-service@thi.example.org]

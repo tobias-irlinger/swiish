@@ -1032,7 +1032,8 @@ app.get('/api/setup/status', apiLimiter, (req, res, next) => {
   db.get("SELECT COUNT(*) as count FROM users", [], (err, row) => {
     if (err) return next(err);
     res.json({
-      setupComplete: row.count > 0,
+      // An addon (e.g. bootstrap) may provision the organisation instead of the setup wizard
+      setupComplete: row.count > 0 || addons.isSetupManaged(),
       userCount: row.count,
       demoMode: false
     });
@@ -1054,6 +1055,9 @@ app.post('/api/setup/initialize', apiLimiter, csrfProtection, [
   body('adminEmail').isEmail({ allow_display_name: false, require_tld: false }).withMessage('Valid email required'),
   body('adminPassword').isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
 ], handleValidationErrors, async (req, res, next) => {
+  if (addons.isSetupManaged()) {
+    return res.status(403).json({ error: 'Setup is managed by configuration' });
+  }
   // Only allow setup if no users exist
   db.get("SELECT COUNT(*) as count FROM users", [], async (err, row) => {
     if (err) return next(err);
@@ -3899,7 +3903,7 @@ addons.init({
   db, dbGet, dbRun, log, logAudit, bcrypt, jwt,
   JWT_SECRET, JWT_EXPIRES_IN, NODE_ENV, APP_URL,
   apiLimiter, requireAuth, requireRole,
-  getOrganizationSettings, ensureUniqueShortCode, invalidatePreviewCache
+  getOrganizationSettings, ensureUniqueShortCode, invalidatePreviewCache, getDefaultThemeColors
 });
 addons.registerRoutes(app);
 
@@ -4548,6 +4552,7 @@ async function runMigrations() {
 (async () => {
   try {
     await runMigrations();
+    await addons.onStartup();
 
     const server = app.listen(PORT, () => {
       // Startup logs are always useful, keep them

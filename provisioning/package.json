@@ -1,0 +1,19 @@
+{
+  "name": "swiish-provisioning",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Validates tenant manifests and renders per-tenant Swiish configuration",
+  "license": "AGPL-3.0",
+  "bin": { "swiish-tenants": "bin/swiish-tenants.js" },
+  "scripts": {
+    "validate": "node bin/swiish-tenants.js validate",
+    "render": "node bin/swiish-tenants.js render",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": { "node": ">=20.9.0" },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "yaml": "^2.8.1"
+  }
+}

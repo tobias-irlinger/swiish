@@ -1,0 +1,28 @@
+# EXAMPLE tenant - replace all values with the institution's real data.
+apiVersion: swiish.hm.edu/v1
+kind: Tenant
+metadata:
+  id: hm
+  name: Hochschule München
+spec:
+  contact: it-service@hm.example.org
+  identity:
+    idpEntityId: https://idp.hm.example.org/idp/shibboleth
+    homeOrganisations: [hm.example.org]
+    owners:
+      entitlements:
+        - urn:mace:hm.example.org:swiish:owner
+  cards:
+    mapping:
+      personal.firstName: given_name
+      personal.lastName: family_name
+      contact.email: email
+      contact.phone: phone_number
+      personal.title: title
+  branding:
+    displayName: Hochschule München
+    themeColors:
+      - name: hm-rot
+        primary: "#fc5555"
+        secondary: "#a51e1e"
+    allowThemeCustomisation: false

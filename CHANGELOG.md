@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **SSO Cards (OIDC addon)**: Optional card per user created from SSO attributes. Provider-owned fields are read-only in the editor and refreshed on every SSO login; other mapped fields are only initial values
 - **Card Limit (addon)**: `CARD_LIMIT_PER_USER` caps the number of cards per user
 - **Automatic HTTPS (Caddy addon)**: Docker Compose override with Caddy and ACME / Let's Encrypt certificates
+- **Bootstrap (addon)**: Create the organisation and manage its settings from a JSON file; replaces the setup wizard for automated deployments
+- **Health Check (addon)**: Optional endpoint (`HEALTHCHECK_PATH`) for orchestrators and monitoring
+- **OIDC Addon**: IdP hint for federation brokers (`OIDC_AUTH_PARAMS`), required claims (`OIDC_REQUIRED_CLAIMS`) and owner roles from emails or claims (`OIDC_OWNER_EMAILS`, `OIDC_OWNER_CLAIMS`, `OIDC_ROLE_SYNC`)
 
 ## [0.7.0] - 2026-09-11
 
